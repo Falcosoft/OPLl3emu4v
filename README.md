@@ -1,5 +1,5 @@
 ﻿OPL3 emulator library for OPL3 GM VSTi by Zoltan Bacsko (Falcosoft)
-version 1.2
+version 1.3
 
 
 based on
