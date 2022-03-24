@@ -165,12 +165,12 @@ WriteMidiData(DWORD dwData)
                 {
 					if(bNote>=35 && bNote<88)
 					{
-						NoteOn((BYTE)(gbPercMap[bNote - 35][0]+35+128),gbPercMap[bNote - 35][1],bChannel,bVelocity,m_iBend[bChannel]);
+						NoteOn((BYTE)(gbPercMap[bNote - 35][0]+35+128),gbPercMap[bNote - 35][1],bChannel,bVelocity,(short)m_iBend[bChannel]);
 					}
                 }
                 else
                 {
-                    NoteOn((BYTE)m_bPatch[bChannel],bNote,bChannel,bVelocity,m_iBend[bChannel]);
+                    NoteOn((BYTE)m_bPatch[bChannel],bNote,bChannel,bVelocity,(short)m_iBend[bChannel]);
                 }
                 break;
             } // if bVelocity.
@@ -283,7 +283,7 @@ WriteMidiData(DWORD dwData)
         case 0xe0:  // pitch bend
             dwTemp = ((WORD)bNote << 0) | ((WORD)bVelocity << 7);
 			dwTemp -= 0x2000;
-			PitchBend(bChannel, (long)dwTemp);
+			PitchBend(bChannel, (short)dwTemp);
 			break;
     };
     return;
@@ -620,7 +620,7 @@ ProcessDataEntry(BYTE bChannel)
             //m_iBend[bChannel] = (long) (dwTemp);
 
             // Update pitch bend
-            PitchBend(bChannel, m_iBend[bChannel]);
+            PitchBend(bChannel, (short)m_iBend[bChannel]);
             break;
 
         
@@ -863,7 +863,7 @@ MIDINote2FNum(double note, BYTE bChannel, long dwLFOVal)
 	else if (BlockVal > 0x07)
 		BlockVal = 0x07;
 	//KeyVal = (unsigned short int)(FreqVal * pow(2, 20 - BlockVal) / CHIP_RATE + 0.5);
-	keyVal = (WORD)(freqVal * (1ULL << (20 - BlockVal)) / FSAMP + 0.5);
+	keyVal = (WORD)(freqVal * ((unsigned long long)1 << (20 - BlockVal)) / FSAMP + 0.5);
 	if (keyVal > 0x03FF)
 		keyVal = 0x03FF;
 	
@@ -933,12 +933,10 @@ void
 {
    WORD  wTemp, wOffset;
    long  newLFOVal = m_Voice[bVoice].dwLFOVal;         
-   DWORD timeDiff = m_dwCurSample-m_Voice[bVoice].dwStartTime;
-   double timeLapse = 0.00025*3.14159265358979323846*(double)(timeDiff),
-          noteDiff = 0;
-   
-         
-
+   DWORD timeDiff = m_dwCurSample - m_Voice[bVoice].dwStartTime;
+   double timeLapse = LFOConst * (double)(timeDiff); //falco: fixed vibrato frequency
+   double noteDiff = 0; 
+        
    // 100Hz sine wave with half semitone magnitude by default
    // (mod*32)sin((1/100)*FSAMP * curSample)
    if (m_bModWheel[m_Voice[bVoice].bChannel] > 0)
@@ -969,7 +967,7 @@ void
    Write(AD_BLOCK + wOffset, m_Voice[ bVoice ].bBlock[ 0 ] ) ;
    Write(AD_FNUMBER + wOffset, (BYTE) wTemp ) ;
    
-} // end of PitchBend
+} // end of Modwheel
 
 
 
@@ -1183,32 +1181,33 @@ BoardReset()
     {
         Write(AD_BLOCK + i, 0x00);
         Write(AD_BLOCK2 + i, 0x00);
-    };
+    };	
 }
 bool
 OPLSynth::
 Init(int samplerate)
 {
-    sampleRate = samplerate;
-	glpPatch = FatglpPatch;
-    // init some members    
-	m_dwCurTime = 1;    /* for note on/off */
-    /* volume */
-    m_wSynthAttenL = 0;        /* in 1.5dB steps */
-    m_wSynthAttenR = 0;        /* in 1.5dB steps */
+  sampleRate = samplerate;
+  LFOConst = (0.00025 * (FSAMP / samplerate)) * 3.14159265358979323846;
+  glpPatch = FatglpPatch;
+  // init some members    
+  m_dwCurTime = 1;    /* for note on/off */
+  /* volume */
+  m_wSynthAttenL = 0;        /* in 1.5dB steps */
+  m_wSynthAttenR = 0;        /* in 1.5dB steps */
 
    // m_MinVolValue  = 0xFFD0C000;    //  minimum -47.25(dB) * 0x10000
    // m_MaxVolValue  = 0x00000000;    //  maximum  0    (dB) * 0x10000
    // m_VolStepDelta = 0x0000C000;    //  steps of 0.75 (dB) * 0x10000
    
-	useNuked = false;
+  useNuked = false;
 
-	dosbox_Miniport.adlib_init(samplerate);	
-	OPL3_Reset(&nuked_Miniport, samplerate);  
-	
-	BoardReset();
+  dosbox_Miniport.adlib_init(samplerate);	
+  OPL3_Reset(&nuked_Miniport, samplerate);  
 
-	return true;
+  BoardReset();
+
+  return true;
 }
 
 void
@@ -1233,6 +1232,7 @@ SetPatch_Sbi(Bit8u bankNum, Bit8u patchNum, Bit8u *buf, DWORD len)
 		   FatglpPatch[patchNum].note.bAtC0[0] = (buf[10] & 0x0F) | 0x30;
 
 		   break;
+
 	   case 1: 
 		   MauiglpPatch[patchNum].note.op[0].bAt20 = buf[0];
 		   MauiglpPatch[patchNum].note.op[1].bAt20 = buf[1];
@@ -1247,6 +1247,7 @@ SetPatch_Sbi(Bit8u bankNum, Bit8u patchNum, Bit8u *buf, DWORD len)
 		   MauiglpPatch[patchNum].note.bAtC0[0] = (buf[10] & 0x0F) | 0x30;
 
 		   break;
+
 	   case 2: 
 		   FmsglpPatch[patchNum].note.op[0].bAt20 = buf[0];
 		   FmsglpPatch[patchNum].note.op[1].bAt20 = buf[1];
@@ -1259,7 +1260,22 @@ SetPatch_Sbi(Bit8u bankNum, Bit8u patchNum, Bit8u *buf, DWORD len)
 		   FmsglpPatch[patchNum].note.op[0].bAtE0 = buf[8];
 		   FmsglpPatch[patchNum].note.op[1].bAtE0 = buf[9];
 		   FmsglpPatch[patchNum].note.bAtC0[0] = (buf[10] & 0x0F) | 0x30;
-	
+
+		   break;
+
+	  case 3: 
+		   CustomPatch[patchNum].note.op[0].bAt20 = buf[0];
+		   CustomPatch[patchNum].note.op[1].bAt20 = buf[1];
+		   CustomPatch[patchNum].note.op[0].bAt40 = buf[2];
+		   CustomPatch[patchNum].note.op[1].bAt40 = buf[3];
+		   CustomPatch[patchNum].note.op[0].bAt60 = buf[4];
+		   CustomPatch[patchNum].note.op[1].bAt60 = buf[5];
+		   CustomPatch[patchNum].note.op[0].bAt80 = buf[6];
+		   CustomPatch[patchNum].note.op[1].bAt80 = buf[7];
+		   CustomPatch[patchNum].note.op[0].bAtE0 = buf[8];
+		   CustomPatch[patchNum].note.op[1].bAtE0 = buf[9];
+		   CustomPatch[patchNum].note.bAtC0[0] = (buf[10] & 0x0F) | 0x30;
+
 		   break;
 	   
 	   default:	
@@ -1287,6 +1303,10 @@ SetBank(int bankNum)
 
 	    case 2:
 		glpPatch = FmsglpPatch;
+        break;
+
+		case 3:
+		glpPatch = CustomPatch;
         break;
 		
 		default:

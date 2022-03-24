@@ -1,3 +1,9 @@
+#ifndef _WIN64
+extern "C" { 
+   long _ftol( double ); 
+   long _ftol2_sse( double dblSource ) { return _ftol( dblSource ); }
+}
+#endif
 
 #include <stddef.h>
 #include "c_types.h"

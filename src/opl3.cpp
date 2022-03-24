@@ -1045,8 +1045,8 @@ static void OPL3_GenerateRhythm1(opl3_chip *chip)
 	channel7 = &chip->channel[7];
 	channel8 = &chip->channel[8];
 	OPL3_SlotGenerate(channel6->slots[0]);
-	phase14 = (channel7->slots[0]->pg_phase >> 9) & 0x3ff;
-	phase17 = (channel8->slots[1]->pg_phase >> 9) & 0x3ff;
+	phase14 = (Bit16u)((channel7->slots[0]->pg_phase >> 9) & 0x3ff);
+	phase17 = (Bit16u)((channel8->slots[1]->pg_phase >> 9) & 0x3ff);
 	phase = 0x00;
 	//hh tc phase bit
 	phasebit = ((phase14 & 0x08) | (((phase14 >> 5) ^ phase14) & 0x04)
@@ -1073,14 +1073,14 @@ static void OPL3_GenerateRhythm2(opl3_chip *chip)
 	channel7 = &chip->channel[7];
 	channel8 = &chip->channel[8];
 	OPL3_SlotGenerate(channel6->slots[1]);
-	phase14 = (channel7->slots[0]->pg_phase >> 9) & 0x3ff;
-	phase17 = (channel8->slots[1]->pg_phase >> 9) & 0x3ff;
+	phase14 = (Bit16u)((channel7->slots[0]->pg_phase >> 9) & 0x3ff);
+	phase17 = (Bit16u)((channel8->slots[1]->pg_phase >> 9) & 0x3ff);
 	phase = 0x00;
 	//hh tc phase bit
 	phasebit = ((phase14 & 0x08) | (((phase14 >> 5) ^ phase14) & 0x04)
 		| (((phase17 >> 2) ^ phase17) & 0x08)) ? 0x01 : 0x00;
 	//sd
-	phase = (0x100 << ((phase14 >> 8) & 0x01)) ^ ((chip->noise & 0x01) << 8);
+	phase = (Bit16u)((0x100 << ((phase14 >> 8) & 0x01)) ^ ((chip->noise & 0x01) << 8));
 	OPL3_SlotGeneratePhase(channel7->slots[1], phase);
 	//tc
 	phase = 0x100 | (phasebit << 9);
@@ -1236,7 +1236,7 @@ void OPL3_Reset(opl3_chip *chip, Bit32u samplerate)
 	Bit8u slotnum;
 	Bit8u channum;
 
-	//memset(chip, 0, sizeof(opl3_chip));
+	memset(chip, 0, sizeof(opl3_chip));
 	for (slotnum = 0; slotnum < 36; slotnum++)
 	{
 		chip->slot[slotnum].chip = chip;
@@ -1266,8 +1266,8 @@ void OPL3_Reset(opl3_chip *chip, Bit32u samplerate)
 		chip->channel[channum].out[2] = &chip->zeromod;
 		chip->channel[channum].out[3] = &chip->zeromod;
 		chip->channel[channum].chtype = ch_2op;
-		chip->channel[channum].cha = ~0;
-		chip->channel[channum].chb = ~0;
+		chip->channel[channum].cha = 0xffff;
+		chip->channel[channum].chb = 0xffff;		
 		OPL3_ChannelSetupAlg(&chip->channel[channum]);
 	}
 	chip->noise = 0x306600;

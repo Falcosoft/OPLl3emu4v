@@ -20,8 +20,6 @@ typedef signed long		LONG;
 #define BCODE
 #define fEnabled TRUE
 
-
-
 #define AsULMUL(a, b) ((DWORD)((DWORD)(a) * (DWORD)(b)))
 #define AsLSHL(a, b) ((DWORD)((DWORD)(a) << (DWORD)(b)))
 #define AsULSHR(a, b) ((DWORD)((DWORD)(a) >> (DWORD)(b)))
@@ -171,18 +169,18 @@ static DWORD BCODE gdwPitch[12] = {
 class OPLSynth
 {
 private:
-    opl3_chip   nuked_Miniport;
-	OPL			dosbox_Miniport;
-	patchStruct *glpPatch;
+  opl3_chip  nuked_Miniport;
+  OPL  dosbox_Miniport;
+  patchStruct *glpPatch;
 
-    // midi stuff
-    voiceStruct m_Voice[NUM2VOICES];  /* info on what voice is where */
-    DWORD m_dwCurTime;    /* for note on/off */
-	DWORD   m_dwCurSample;      /* for software eg/lfo generators */
-    /* volume */
-    WORD    m_wSynthAttenL;        /* in 1.5dB steps */
-    WORD    m_wSynthAttenR;        /* in 1.5dB steps */	
-	//BYTE    m_bRPNCount[16];
+  // midi stuff
+  voiceStruct m_Voice[NUM2VOICES];  /* info on what voice is where */
+  DWORD   m_dwCurTime;    /* for note on/off */
+  DWORD   m_dwCurSample;      /* for software eg/lfo generators */
+  /* volume */
+  WORD    m_wSynthAttenL;        /* in 1.5dB steps */
+  WORD    m_wSynthAttenR;        /* in 1.5dB steps */	
+  //BYTE    m_bRPNCount[16];
 
     /* support for volume property */
    // LONG    m_MinVolValue;      // Minimum value for volume controller
@@ -190,60 +188,60 @@ private:
    // ULONG   m_VolStepDelta;     // Correlation between controller and actual decibels
    // LONG    m_SavedVolValue[2]; // Saved value for volume controller
 
-    /* channel volumes */
-    BYTE    m_bChanAtten[16];       /* attenuation of each channel, in .75 db steps */
-    BYTE    m_bStereoMask[16];              /* mask for left/right for stereo midi files */
+  /* channel volumes */
+  BYTE    m_bChanAtten[16];       /* attenuation of each channel, in .75 db steps */
+  BYTE    m_bStereoMask[16];              /* mask for left/right for stereo midi files */
 
-    LONG    m_iBend[16];    /* bend for each channel */
-	BYTE    m_bDataEnt[16][2]; /* Data Entry MSB/LSB */
-	BYTE    m_iBendRange[16];  /* Bend range as dictated by CC100=0, CC101=0,CC6=n, where n= +/- range of semitones */
-	BYTE    m_bModWheel[16];   /* Modulation wheel setting */
-    BYTE    m_iExpThres[16];   /* 0 to 127 expression value */
-	BYTE    m_curVol[16];      /* Volume control */
+  LONG    m_iBend[16];    /* bend for each channel */
+  BYTE    m_bDataEnt[16][2]; /* Data Entry MSB/LSB */
+  BYTE    m_iBendRange[16];  /* Bend range as dictated by CC100=0, CC101=0,CC6=n, where n= +/- range of semitones */
+  BYTE    m_bModWheel[16];   /* Modulation wheel setting */
+  BYTE    m_iExpThres[16];   /* 0 to 127 expression value */
+  BYTE    m_curVol[16];      /* Volume control */
+  BYTE    m_bPatch[16];   /* patch number mapped to */
+  BYTE    m_bSustain[16];   /* Is sustain in effect on this channel? */
+  BYTE    m_RPN[16][2]; 
 
-	BYTE    m_bPatch[16];   /* patch number mapped to */
-    BYTE    m_bSustain[16];   /* Is sustain in effect on this channel? */
-	BYTE    m_RPN[16][2]; 
-	
-	bool    isNrpnActive[16]; //falco: either RPN OR NRPN can be active! We do not support NRPN, but false settings can occur if we do not check NRPN status since both use the same data entry.
-	
-	bool    useNuked; // use Nuked OPL3 emulator engine;
-	
-	int     sampleRate;
+  bool    isNrpnActive[16]; //falco: either RPN OR NRPN can be active! We do not support NRPN, but false settings can occur if we do not check NRPN status since both use the same data entry.
 
-    void ChannelVolume(BYTE bChannel, WORD wAtten);
-    void SetPan(BYTE bChannel, BYTE bPan);
-    void PitchBend(BYTE bChannel, short iBend);
-    void NoteOn(BYTE bPatch,BYTE bNote, BYTE bChannel, BYTE bVelocity,short iBend);
-    void NoteOff (BYTE bPatch,BYTE bNote, BYTE bChannel, BYTE bSustain);
-    void AllNotesOff(void);
-    void ChannelNotesOff(BYTE bChannel);
-    WORD FindFullSlot(BYTE bNote, BYTE bChannel);
-	void ProcessDataEntry(BYTE bChannel);
-    //WORD CalcFAndB (DWORD dwPitch);
-	WORD MIDINote2FNum(double note, BYTE bChannel, long dwLFOVal);
-    //DWORD CalcBend (DWORD dwOrig, short iBend);
-    BYTE CalcVolume (BYTE bOrigAtten, BYTE bChannel,BYTE bVelocity, BYTE bOper, BYTE bMode);
-    BYTE CalcStereoMask (BYTE bChannel);
-    WORD FindEmptySlot(BYTE bPatch, BYTE bChannel);
-    void SetVolume(BYTE bChannel);
-    void FMNote(WORD wNote, noteStruct *lpSN);
-    void SetSustain(BYTE bChannel, BYTE bSusLevel);
-    void LFOUpdate(BYTE bVoice);
-	void Write(Bit16u reg, Bit8u v);	
-	void Generate(Bit16s *sndptr, Bit32u numsamples);
+  bool    useNuked; // use Nuked OPL3 emulator engine;
+
+  int     sampleRate;
+  double  LFOConst;
+
+  void ChannelVolume(BYTE bChannel, WORD wAtten);
+  void SetPan(BYTE bChannel, BYTE bPan);
+  void PitchBend(BYTE bChannel, short iBend);
+  void NoteOn(BYTE bPatch,BYTE bNote, BYTE bChannel, BYTE bVelocity,short iBend);
+  void NoteOff (BYTE bPatch,BYTE bNote, BYTE bChannel, BYTE bSustain);
+  void AllNotesOff(void);
+  void ChannelNotesOff(BYTE bChannel);
+  WORD FindFullSlot(BYTE bNote, BYTE bChannel);
+  void ProcessDataEntry(BYTE bChannel);
+  //WORD CalcFAndB (DWORD dwPitch);
+  WORD MIDINote2FNum(double note, BYTE bChannel, long dwLFOVal);
+  //DWORD CalcBend (DWORD dwOrig, short iBend);
+  BYTE CalcVolume (BYTE bOrigAtten, BYTE bChannel,BYTE bVelocity, BYTE bOper, BYTE bMode);
+  BYTE CalcStereoMask (BYTE bChannel);
+  WORD FindEmptySlot(BYTE bPatch, BYTE bChannel);
+  void SetVolume(BYTE bChannel);
+  void FMNote(WORD wNote, noteStruct *lpSN);
+  void SetSustain(BYTE bChannel, BYTE bSusLevel);
+  void LFOUpdate(BYTE bVoice);
+  void Write(Bit16u reg, Bit8u v);	
+  void Generate(Bit16s *sndptr, Bit32u numsamples);
 public:	
-    bool Init(int samplerate);
-    void WriteMidiData(DWORD dwData);	
-    void BoardReset(void);
-    void GetSample(short *samplem, int len);
-    void PlaySysex(Bit8u *bufpos, DWORD len);
-	void SetPatch_Sbi(Bit8u bankNum, Bit8u patchNum, Bit8u *buf, DWORD len);
-	void SetBank(int bankNum);
-	int  GetActiveVoiceCount(void);
-	void SetVolume(WORD volume_atten);
-	BYTE GetPatch(BYTE channel);
-	void UseNukedOPL3(bool value);
+  bool Init(int samplerate);
+  void WriteMidiData(DWORD dwData);	
+  void BoardReset(void);
+  void GetSample(short *samplem, int len);
+  void PlaySysex(Bit8u *bufpos, DWORD len);
+  void SetPatch_Sbi(Bit8u bankNum, Bit8u patchNum, Bit8u *buf, DWORD len);
+  void SetBank(int bankNum);
+  int  GetActiveVoiceCount(void);
+  void SetVolume(WORD volume_atten);
+  BYTE GetPatch(BYTE channel);
+  void UseNukedOPL3(bool value);
 
 };
 #endif
