@@ -161,7 +161,7 @@ WriteMidiData(DWORD dwData)
         case 0x90:      /* turn key on, or key off if volume == 0 */
             if (bVelocity)
             {
-                if (bChannel == DRUMCHANNEL)
+                if ((1 << bChannel) & m_DRUMCHANNEL)
                 {
 					if(bNote>=35 && bNote<88)
 					{
@@ -179,7 +179,7 @@ WriteMidiData(DWORD dwData)
         case 0x80:
             /* turn key off */
             //  we don't care what the velocity is on note off
-            if (bChannel == DRUMCHANNEL)
+            if ((1 << bChannel) & m_DRUMCHANNEL)
 			{
 				if(bNote>=35 && bNote<88)
 				{
@@ -196,7 +196,20 @@ WriteMidiData(DWORD dwData)
             /* change control */
             switch (bNote)
             {
-               	case 1: // Modulation Wheel
+				case 0: //Bank MSB
+					if (m_MidiMode == XGMODE)
+					{
+						if (bVelocity == 127) m_DRUMCHANNEL = m_DRUMCHANNEL | (1 << bChannel);
+						else if (bChannel != 9)  m_DRUMCHANNEL = m_DRUMCHANNEL & ~(1 << bChannel);
+					}
+					else if (m_MidiMode == GM2MODE)
+					{
+						if (bVelocity == 120) m_DRUMCHANNEL = m_DRUMCHANNEL | (1 << bChannel);
+						else m_DRUMCHANNEL = m_DRUMCHANNEL & ~(1 << bChannel);
+					}
+					break;
+
+				case 1: // Modulation Wheel
 					m_bModWheel[bChannel] = bVelocity;
 					break;
 
@@ -273,7 +286,7 @@ WriteMidiData(DWORD dwData)
             break;
 
         case 0xc0:
-            if (bChannel != DRUMCHANNEL)
+            if (!((1 << bChannel) & m_DRUMCHANNEL))
             {
                m_bPatch[ bChannel ] = bNote ;
 
@@ -1129,9 +1142,10 @@ void
 OPLSynth::
 BoardReset()
 {
-    BYTE i;
-	
+    BYTE i;	
 	AllNotesOff();
+
+	m_DRUMCHANNEL = 512; /* 9th bit set -> Midi channel 10 */
 
      /* start attenuations at -3 dB, which is 90 MIDI level */
     for (i = 0; i < 16; i++)
@@ -1186,7 +1200,8 @@ BoardReset()
 bool
 OPLSynth::
 Init(int samplerate)
-{
+{  
+  m_MidiMode = GMMODE;
   sampleRate = samplerate;
   LFOConst = (0.00025 * (FSAMP / samplerate)) * 3.14159265358979323846;
   glpPatch = FatglpPatch;
@@ -1354,7 +1369,10 @@ GetPatch(BYTE channel)
     BYTE result = 0;
 
 	if (channel < 16)
-	result = m_bPatch[channel];
+	{
+		if (!((1 << channel) & m_DRUMCHANNEL)) result = m_bPatch[channel];
+		else result = 128; //indicates Drum
+	}
 
 	return result;
 }
@@ -1362,17 +1380,54 @@ GetPatch(BYTE channel)
 void
 OPLSynth::
 PlaySysex(Bit8u *bufpos, DWORD len)
-{
+{   
    bool isResetSysex = false;
-   const BYTE resetArray[6] = {0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7};
+   
+   const BYTE GMReset[6] = {0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7};
+   const BYTE GSReset[11] = {0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, 0xF7};
+   const BYTE SC88Reset[11] = {0xF0, 0x41, 0x10, 0x42, 0x12, 0x00, 0x00, 0x7F, 0x00, 0x01, 0xF7};
+   const BYTE XGReset[9] = {0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E, 0x00, 0xF7};
+   const BYTE GM2Reset[6] = {0xF0, 0x7E, 0x7F, 0x09, 0x03, 0xF7};
    
    // Ignore Sysex Continued or non-standard sysex events
    if (bufpos[0] != 0xF0 || bufpos[len-1] != 0xF7)
       return;
 
    // Check reset
-   if (len == 6  && memcmp(&resetArray[0], bufpos, 6) == 0)
+   if (len == 6  && memcmp(&GMReset[0], bufpos, len) == 0)
+   {
       isResetSysex = true;
+	  m_MidiMode = GMMODE;
+   }
+   else if (len == 11  && (memcmp(&GSReset[0], bufpos, len) == 0 || memcmp(&SC88Reset[0], bufpos, len) == 0))
+   {
+      isResetSysex = true;
+	  m_MidiMode = GSMODE;
+   }
+   else if (len == 9  && memcmp(&XGReset[0], bufpos, len) == 0)
+   {
+      isResetSysex = true;
+	  m_MidiMode = XGMODE;
+   }
+   else if (len == 6  && memcmp(&GM2Reset[0], bufpos, len) == 0)
+   {
+      isResetSysex = true;
+	  m_MidiMode = GM2MODE;
+   }
+   else if ((len == 11)  && (memcmp(&GSReset[0], bufpos, 6) == 0) && ((bufpos[6] & 0xF0) == 0x10) && (bufpos[7] == 0x15)) //GS style Drum channel select
+   {	  
+	  int tempChannel;
+	  
+	  if ((bufpos[6] & 0x0F) == 0) tempChannel = 9;
+	  else if (((bufpos[6] & 0x0F) >= 1) && ((bufpos[6] & 0x0F) <= 9)) tempChannel = (bufpos[6] & 0x0F) - 1;
+	  else if (((bufpos[6] & 0x0F) >= 10) && ((bufpos[6] & 0x0F) <= 15)) tempChannel = (bufpos[6] & 0x0F);
+
+	  if (bufpos[8] == 0)
+		m_DRUMCHANNEL = m_DRUMCHANNEL & ~(1 << tempChannel);
+	  else  
+		m_DRUMCHANNEL = m_DRUMCHANNEL | (1 << tempChannel);
+	  
+   }
    
    if (isResetSysex)
    {

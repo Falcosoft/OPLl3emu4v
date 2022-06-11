@@ -14,7 +14,10 @@ typedef unsigned long	DWORD,ULONG;
 typedef signed long		LONG;
 
 #define NUMPATCHES                      (256)
-#define DRUMCHANNEL                     (9)     /* midi channel 10 */
+#define GMMODE                      (1)
+#define GSMODE                       (2)
+#define XGMODE                       (3)
+#define GM2MODE                       (4)
 
 
 #define BCODE
@@ -201,6 +204,10 @@ private:
   BYTE    m_bPatch[16];   /* patch number mapped to */
   BYTE    m_bSustain[16];   /* Is sustain in effect on this channel? */
   BYTE    m_RPN[16][2]; 
+  
+  /* bitfield for supporting more than 1 drum channel */
+  WORD    m_DRUMCHANNEL;  
+  BYTE    m_MidiMode; //GM/GS/XG/GM2
 
   bool    isNrpnActive[16]; //falco: either RPN OR NRPN can be active! We do not support NRPN, but false settings can occur if we do not check NRPN status since both use the same data entry.
 
